@@ -1,35 +1,23 @@
 import streamlit as st
-import pandas as pd
 import plotly.express as px
 import json
 import os
-import re
+
+from transactions import (
+    CURRENCIES,
+    DEFAULT_CURRENCY,
+    categorize_transactions,
+    move_keyword_to_category,
+    parse_transactions,
+)
 
 st.set_page_config(page_title="Simple Finance App", page_icon="💰", layout="wide")
 
 category_file = "categories.json"
 
-CURRENCIES = {
-    "USD": "$",
-    "NGN": "₦",
-    "EUR": "€",
-    "GBP": "£",
-    "AED": "AED ",
-}
-DEFAULT_CURRENCY = "USD"
 
-def detect_currency(df):
-    """Guess the currency from a Currency column or symbols in Amount. Returns a code or None."""
-    if "Currency" in df.columns:
-        values = df["Currency"].dropna().astype(str).str.strip().str.upper()
-        if not values.empty and values.iloc[0] in CURRENCIES:
-            return values.iloc[0]
 
-    sample = " ".join(df["Amount"].astype(str).head(50))
-    for code, symbol in CURRENCIES.items():
-        if symbol.strip() in sample:
-            return code
-    return None
+
 
 if "categories" not in st.session_state:
     st.session_state.categories = {
@@ -44,56 +32,16 @@ def save_categories():
     with open(category_file, "w") as f:
         json.dump(st.session_state.categories, f)
 
-def categorize_transactions(df):
-    df["Category"] = "Uncategorized"
 
-    for category, keywords in st.session_state.categories.items():
-        if category == "Uncategorized" or not keywords:
-            continue
-
-        lowered_keywords = [keyword.lower().strip() for keyword in keywords]
-
-        for idx, row in df.iterrows():
-            details = row["Details"].lower()
-            if details in lowered_keywords:
-                df.at[idx, "Category"] = category
-    
-    return df
 
 def load_transactions(file):
     try:
-        df = pd.read_csv(file)
-        df.columns = [col.strip() for col in df.columns]
-
-        currency = detect_currency(df)
-
-        df["Amount"] = (
-            df["Amount"].astype(str)
-            .str.replace(r"[^0-9.\-]", "", regex=True)
-            .astype(float)
-        )
-        df["Date"] = pd.to_datetime(df["Date"], format="%d %b %Y")
-
-        return categorize_transactions(df), currency
+        df, currency = parse_transactions(file)
+        return categorize_transactions(df, st.session_state.categories), currency
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None, None
 
-def move_keyword_to_category(category, keyword):
-    """Assign a keyword to one category, removing it from every other category."""
-    keyword = keyword.strip()
-    if not keyword:
-        return
-
-    for name, keywords in st.session_state.categories.items():
-        if name != category:
-            keywords[:] = [k for k in keywords if k.strip().lower() != keyword.lower()]
-
-    existing = [k.strip().lower() for k in st.session_state.categories[category]]
-    if category != "Uncategorized" and keyword.lower() not in existing:
-        st.session_state.categories[category].append(keyword)
-
-    save_categories()
 
 def main():
     st.title("Simple Finance Dashboard")
@@ -155,9 +103,12 @@ def main():
                         new_category = row["Category"]
                         if new_category == st.session_state.debits_df.at[idx, "Category"]:
                             continue
-                        move_keyword_to_category(new_category, row["Details"])
+                        move_keyword_to_category(st.session_state.categories, new_category, row["Details"])
 
-                    st.session_state.debits_df = categorize_transactions(st.session_state.debits_df)
+                    save_categories()
+                    st.session_state.debits_df = categorize_transactions(
+                        st.session_state.debits_df, st.session_state.categories
+                    )
                     st.session_state.editor_version += 1
                     st.rerun()
                 
