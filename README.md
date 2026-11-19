@@ -4,7 +4,9 @@
 
 A personal finance dashboard: upload a bank CSV, categorise your transactions, and see where your money goes.
 
-**Live app:** [spendwise-nathani.streamlit.app](https://spendwise-nathani.streamlit.app/)
+**Live app:** [spendwise-nathani.streamlit.app](https://spendwise-nathani.streamlit.app/). No CSV handy? Click **Try demo data**.
+
+The free hosting sleeps when nobody has visited for a while. If you see a wake-up button, click it and allow about a minute.
 
 ![Spendwise screenshot](screenshot.png)
 
@@ -12,7 +14,7 @@ A personal finance dashboard: upload a bank CSV, categorise your transactions, a
 
 ## Features
 
-- Upload a bank statement as a CSV file
+- Upload a bank statement as a CSV file, or try three months of demo data with one click
 - Assign categories in an editable table; changing one transaction updates every matching one
 - Expense summary table and chart by category
 - Total payments received (credits)
@@ -70,7 +72,6 @@ python -m pytest
 
 ## Roadmap
 
-- "Try demo data" button
 - Month filter and spending trends over time
 - Budgets per category with progress bars
 - Smarter matching, so partial names like `UBER *TRIP 123` match `Uber`
