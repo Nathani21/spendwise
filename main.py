@@ -199,11 +199,27 @@ def main():
                     hide_index=True
                 )
 
-                fig = px.pie(
-                    category_totals,
-                    values="Amount",
-                    names="Category",
-                    title="Expenses by Category"
+                chart_data = category_totals.assign(
+                    Label=category_totals["Amount"].apply(lambda amount: format_compact(amount, symbol))
+                )
+                fig = px.bar(
+                    chart_data,
+                    x="Amount",
+                    y="Category",
+                    orientation="h",
+                    text="Label",
+                    title="Expenses by Category",
+                )
+                fig.update_traces(
+                    textposition="outside",
+                    cliponaxis=False,
+                    hovertemplate="%{y}: " + symbol + "%{x:,.2f}<extra></extra>",
+                )
+                fig.update_layout(
+                    yaxis={"categoryorder": "total ascending", "title": None},
+                    xaxis={"title": None, "showticklabels": False, "showgrid": False},
+                    height=max(250, 50 * len(chart_data) + 100),
+                    margin={"l": 0, "r": 60, "t": 50, "b": 0},
                 )
                 st.plotly_chart(fig, width="stretch")
 
