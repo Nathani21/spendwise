@@ -79,13 +79,21 @@ def load_transactions(file):
         st.error(f"Error processing file: {str(e)}")
         return None, None
 
-def add_keyword_to_category(category, keyword):
+def move_keyword_to_category(category, keyword):
+    """Assign a keyword to one category, removing it from every other category."""
     keyword = keyword.strip()
-    if keyword and keyword not in st.session_state.categories[category]:
+    if not keyword:
+        return
+
+    for name, keywords in st.session_state.categories.items():
+        if name != category:
+            keywords[:] = [k for k in keywords if k.strip().lower() != keyword.lower()]
+
+    existing = [k.strip().lower() for k in st.session_state.categories[category]]
+    if category != "Uncategorized" and keyword.lower() not in existing:
         st.session_state.categories[category].append(keyword)
-        save_categories()
-        return True
-    return False
+
+    save_categories()
 
 def main():
     st.title("Simple Finance Dashboard")
@@ -93,7 +101,18 @@ def main():
     uploaded_file = st.file_uploader("Upload your transaction CSV file", type=["csv"])
 
     if uploaded_file is not None:
-        df, detected = load_transactions(uploaded_file)
+        file_key = f"{uploaded_file.name}-{uploaded_file.size}"
+        if st.session_state.get("file_key") != file_key:
+            df, detected = load_transactions(uploaded_file)
+            if df is not None:
+                st.session_state.file_key = file_key
+                st.session_state.df = df
+                st.session_state.detected = detected
+                st.session_state.debits_df = df[df["Debit/Credit"] == "Debit"].copy()
+                st.session_state.editor_version = 0
+        else:
+            df = st.session_state.df
+            detected = st.session_state.detected
 
         if df is not None:
             codes = list(CURRENCIES.keys())
@@ -103,10 +122,7 @@ def main():
                 st.sidebar.caption(f"Detected {detected} from your file")
             symbol = CURRENCIES[currency]
             money_format = f"{symbol}%.2f"
-            debits_df = df[df["Debit/Credit"] == "Debit"].copy()
             credits_df = df[df["Debit/Credit"] == "Credit"].copy()
-
-            st.session_state.debits_df = debits_df.copy()
 
             tab1, tab2 = st.tabs(["Expenses (Debits)", "Payments (Credits)"])
             with tab1:
@@ -130,7 +146,7 @@ def main():
                     },
                     hide_index=True,
                     width="stretch",
-                    key="category_editor"
+                    key=f"category_editor_{st.session_state.editor_version}"
                 )
 
                 save_button = st.button("Apply Changes", type="primary")
@@ -139,10 +155,11 @@ def main():
                         new_category = row["Category"]
                         if new_category == st.session_state.debits_df.at[idx, "Category"]:
                             continue
+                        move_keyword_to_category(new_category, row["Details"])
 
-                        details = row["Details"]
-                        st.session_state.debits_df.at[idx, "Category"] = new_category
-                        add_keyword_to_category(new_category, details)
+                    st.session_state.debits_df = categorize_transactions(st.session_state.debits_df)
+                    st.session_state.editor_version += 1
+                    st.rerun()
                 
                 st.subheader("Expense Summary")
                 category_totals = st.session_state.debits_df.groupby("Category")["Amount"].sum().reset_index()
