@@ -8,9 +8,11 @@ from transactions import (
     DEFAULT_CURRENCY,
     categories_to_json,
     categorize_transactions,
+    format_money,
     move_keyword_to_category,
     parse_categories,
     parse_transactions,
+    summarize,
 )
 
 st.set_page_config(page_title="Spendwise", page_icon="💰", layout="wide")
@@ -120,6 +122,21 @@ def main():
             symbol = CURRENCIES[currency]
             money_format = f"{symbol}%.2f"
             credits_df = df[df["Debit/Credit"] == "Credit"].copy()
+
+            summary = summarize(st.session_state.debits_df, credits_df)
+            spent_col, income_col, savings_col, top_col = st.columns(4, border=True)
+            spent_col.metric("Total spent", format_money(summary["total_spent"], symbol))
+            income_col.metric("Income", format_money(summary["total_income"], symbol))
+
+            rate = summary["savings_rate"]
+            savings_col.metric("Savings rate", "—" if rate is None else f"{rate:.0f}%")
+
+            if summary["top_category"]:
+                top_col.metric("Biggest category", summary["top_category"])
+                top_col.caption(format_money(summary["top_amount"], symbol))
+            else:
+                top_col.metric("Biggest category", "—")
+                top_col.caption("Categorise expenses to see this")
 
             tab1, tab2 = st.tabs(["Expenses (Debits)", "Payments (Credits)"])
             with tab1:
