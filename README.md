@@ -15,11 +15,13 @@ The free hosting sleeps when nobody has visited for a while. If you see a wake-u
 ## Features
 
 - Upload a bank statement as a CSV file, or try three months of demo data with one click
+- Headline cards: total spent, income, savings rate and biggest category
 - Assign categories in an editable table; changing one transaction updates every matching one
-- Expense summary table and chart by category
-- Total payments received (credits)
+- Spending by category as a sorted bar chart, with a summary table
+- Month filter, plus a monthly trend of spending against income
 - Currency detected automatically from a `Currency` column or from symbols in the amounts (₦, $, €, £), with a manual selector (USD, NGN, EUR, GBP, AED)
 - Export and import your categories as a JSON file
+- Light and dark mode
 
 ## CSV format
 
@@ -67,12 +69,13 @@ python -m pytest
 - **`transactions.py`** holds all the logic (parsing, currency detection, categorising, import/export validation) as plain functions with no Streamlit imports, so it can be unit tested
 - **`main.py`** is the Streamlit interface and keeps per-visitor state in the session
 - **`test_transactions.py`** covers the logic with pytest
+- **`sample_data/`** holds the demo transactions and categories; a test keeps them valid and fully categorised
+- **`.streamlit/config.toml`** sets the brand colour for both the light and dark themes
 - **CI:** GitHub Actions runs the tests on Ubuntu with Python 3.13 for every pull request, and `main` is protected so a failing check blocks the merge
 - **Deployment:** Streamlit Community Cloud redeploys the live app on every merge to `main`
 
 ## Roadmap
 
-- Month filter and spending trends over time
 - Budgets per category with progress bars
 - Smarter matching, so partial names like `UBER *TRIP 123` match `Uber`
 - v2: rebuild with a FastAPI backend and a Next.js frontend, with accounts
