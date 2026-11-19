@@ -129,7 +129,7 @@ def main():
                         )
                     },
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                     key="category_editor"
                 )
 
@@ -153,7 +153,7 @@ def main():
                     column_config={
                         "Amount": st.column_config.NumberColumn("Amount", format=money_format)
                     },
-                    use_container_width = True,
+                    width="stretch",
                     hide_index=True
                 )
 
@@ -163,7 +163,7 @@ def main():
                     names="Category",
                     title="Expenses by Category"
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
             
             with tab2:
