@@ -5,10 +5,12 @@ import pandas as pd
 import pytest
 
 from transactions import (
+    categories_to_json,
     categorize_transactions,
     clean_amounts,
     detect_currency,
     move_keyword_to_category,
+    parse_categories,
     parse_transactions,
 )
 
@@ -178,3 +180,38 @@ def test_move_then_categorize_round_trip():
     move_keyword_to_category(categories, "Food", "Carrefour")
     df = categorize_transactions(make_df(["Carrefour", "Carrefour", "Uber"]), categories)
     assert df["Category"].tolist() == ["Food", "Food", "Uncategorized"]
+
+
+
+
+# ---------- parse_categories / categories_to_json ----------
+
+def test_categories_round_trip():
+    categories = {"Uncategorized": [], "Groceries": ["Carrefour", "Shoprite"]}
+    assert parse_categories(categories_to_json(categories)) == categories
+
+
+def test_parse_categories_accepts_bytes():
+    assert parse_categories(b'{"Food": ["KFC"]}') == {"Food": ["KFC"], "Uncategorized": []}
+
+
+def test_parse_categories_adds_uncategorized():
+    assert "Uncategorized" in parse_categories('{"Food": []}')
+
+
+def test_parse_categories_keeps_non_ascii():
+    text = categories_to_json({"Uncategorized": [], "Food": ["Café"]})
+    assert "Café" in text
+    assert parse_categories(text)["Food"] == ["Café"]
+
+
+@pytest.mark.parametrize("bad", ["not json", b"\xff\xfe\x00", ""])
+def test_parse_categories_rejects_invalid_json(bad):
+    with pytest.raises(ValueError, match="valid JSON"):
+        parse_categories(bad)
+
+
+@pytest.mark.parametrize("bad", ['["Food"]', '{"Food": "KFC"}', '{"Food": [1, 2]}', "42"])
+def test_parse_categories_rejects_wrong_shape(bad):
+    with pytest.raises(ValueError, match="list of keywords"):
+        parse_categories(bad)

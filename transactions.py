@@ -1,4 +1,6 @@
 """Transaction logic for Spendwise. No Streamlit imports, so everything here can be tested."""
+import json
+
 import pandas as pd
 
 CURRENCIES = {
@@ -76,3 +78,30 @@ def move_keyword_to_category(categories, category, keyword):
     existing = [k.strip().lower() for k in categories[category]]
     if category != "Uncategorized" and keyword.lower() not in existing:
         categories[category].append(keyword)
+
+
+
+
+def parse_categories(data):
+    """Parse an exported categories file (text or bytes). Raises ValueError with a user-facing message."""
+    try:
+        categories = json.loads(data)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise ValueError("That file isn't valid JSON.") from None
+
+    valid = isinstance(categories, dict) and all(
+        isinstance(name, str)
+        and isinstance(keywords, list)
+        and all(isinstance(k, str) for k in keywords)
+        for name, keywords in categories.items()
+    )
+    if not valid:
+        raise ValueError("Expected category names, each with a list of keywords.")
+
+    categories.setdefault("Uncategorized", [])
+    return categories
+
+
+def categories_to_json(categories):
+    """Turn categories into JSON text for downloading."""
+    return json.dumps(categories, indent=2, ensure_ascii=False)
