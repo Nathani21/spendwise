@@ -3,10 +3,33 @@ import pandas as pd
 import plotly.express as px
 import json
 import os
+import re
 
 st.set_page_config(page_title="Simple Finance App", page_icon="💰", layout="wide")
 
 category_file = "categories.json"
+
+CURRENCIES = {
+    "USD": "$",
+    "NGN": "₦",
+    "EUR": "€",
+    "GBP": "£",
+    "AED": "AED ",
+}
+DEFAULT_CURRENCY = "USD"
+
+def detect_currency(df):
+    """Guess the currency from a Currency column or symbols in Amount. Returns a code or None."""
+    if "Currency" in df.columns:
+        values = df["Currency"].dropna().astype(str).str.strip().str.upper()
+        if not values.empty and values.iloc[0] in CURRENCIES:
+            return values.iloc[0]
+
+    sample = " ".join(df["Amount"].astype(str).head(50))
+    for code, symbol in CURRENCIES.items():
+        if symbol.strip() in sample:
+            return code
+    return None
 
 if "categories" not in st.session_state:
     st.session_state.categories = {
@@ -41,13 +64,20 @@ def load_transactions(file):
     try:
         df = pd.read_csv(file)
         df.columns = [col.strip() for col in df.columns]
-        df["Amount"] = df["Amount"].str.replace(",", "").astype(float)
+
+        currency = detect_currency(df)
+
+        df["Amount"] = (
+            df["Amount"].astype(str)
+            .str.replace(r"[^0-9.\-]", "", regex=True)
+            .astype(float)
+        )
         df["Date"] = pd.to_datetime(df["Date"], format="%d %b %Y")
 
-        return categorize_transactions(df)
+        return categorize_transactions(df), currency
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
-        return None
+        return None, None
 
 def add_keyword_to_category(category, keyword):
     keyword = keyword.strip()
@@ -63,9 +93,16 @@ def main():
     uploaded_file = st.file_uploader("Upload you transaction CSV file", type=["csv"])
 
     if uploaded_file is not None:
-        df = load_transactions(uploaded_file)
+        df, detected = load_transactions(uploaded_file)
 
         if df is not None:
+            codes = list(CURRENCIES.keys())
+            default = detected or DEFAULT_CURRENCY
+            currency = st.sidebar.selectbox("Currency", codes, index=codes.index(default))
+            if detected:
+                st.sidebar.caption(f"Detected {detected} from your file")
+            symbol = CURRENCIES[currency]
+            money_format = f"{symbol}%.2f"
             debits_df = df[df["Debit/Credit"] == "Debit"].copy()
             credits_df = df[df["Debit/Credit"] == "Credit"].copy()
 
@@ -85,7 +122,7 @@ def main():
                     st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
-                        "Amount": st.column_config.NumberColumn("Amount", format="%.2f AED"),
+                        "Amount": st.column_config.NumberColumn("Amount", format=money_format),
                         "Category": st.column_config.SelectboxColumn(
                             "Category",
                             options=list(st.session_state.categories.keys())
@@ -114,7 +151,7 @@ def main():
                 st.dataframe(
                     category_totals,
                     column_config={
-                        "Amount": st.column_config.NumberColumn("Amout", format="%.2f AED")
+                        "Amount": st.column_config.NumberColumn("Amout", format=money_format)
                     },
                     use_container_width = True,
                     hide_index=True
@@ -132,7 +169,7 @@ def main():
             with tab2:
                 st.subheader("Payment Summary")
                 total_payments = credits_df["Amount"].sum()
-                st.metric("Total Payments", f"{total_payments:,.2f} AED")
+                st.metric("Total Payments", f"{symbol}{total_payments:,.2f}")
                 st.write(credits_df)
 
 main()
