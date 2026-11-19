@@ -1,36 +1,55 @@
 import streamlit as st
 import plotly.express as px
-import json
-import os
 
 from transactions import (
     CURRENCIES,
     DEFAULT_CURRENCY,
+    categories_to_json,
     categorize_transactions,
     move_keyword_to_category,
+    parse_categories,
     parse_transactions,
 )
 
 st.set_page_config(page_title="Simple Finance App", page_icon="💰", layout="wide")
-
-category_file = "categories.json"
-
-
-
-
 
 if "categories" not in st.session_state:
     st.session_state.categories = {
         "Uncategorized": []
     }
 
-if os.path.exists(category_file):
-    with open(category_file, "r") as f:
-        st.session_state.categories = json.load(f)
 
-def save_categories():
-    with open(category_file, "w") as f:
-        json.dump(st.session_state.categories, f)
+def categories_sidebar():
+    """Export and import categories, so they live with the user instead of on the server."""
+    st.sidebar.subheader("Categories")
+    st.sidebar.download_button(
+        "Export categories",
+        data=categories_to_json(st.session_state.categories),
+        file_name="spendwise-categories.json",
+        mime="application/json",
+    )
+
+    imported = st.sidebar.file_uploader("Import categories", type=["json"])
+    if imported is None:
+        return
+
+    import_key = f"{imported.name}-{imported.size}"
+    if st.session_state.get("categories_import_key") == import_key:
+        return
+
+    try:
+        st.session_state.categories = parse_categories(imported.getvalue())
+    except ValueError as e:
+        st.sidebar.error(str(e))
+        return
+
+    st.session_state.categories_import_key = import_key
+    if "debits_df" in st.session_state:
+        st.session_state.debits_df = categorize_transactions(
+            st.session_state.debits_df, st.session_state.categories
+        )
+        st.session_state.editor_version += 1
+    st.sidebar.success("Categories imported")
 
 
 
@@ -45,6 +64,7 @@ def load_transactions(file):
 
 def main():
     st.title("Simple Finance Dashboard")
+    categories_sidebar()
     
     uploaded_file = st.file_uploader("Upload your transaction CSV file", type=["csv"])
 
@@ -79,7 +99,6 @@ def main():
                 if add_button and new_category:
                     if new_category not in st.session_state.categories:
                         st.session_state.categories[new_category] = []
-                        save_categories()
                         st.rerun()
                 st.subheader("Your Expenses")
                 edited_df = st.data_editor(
@@ -105,7 +124,6 @@ def main():
                             continue
                         move_keyword_to_category(st.session_state.categories, new_category, row["Details"])
 
-                    save_categories()
                     st.session_state.debits_df = categorize_transactions(
                         st.session_state.debits_df, st.session_state.categories
                     )
