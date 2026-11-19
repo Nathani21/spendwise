@@ -80,6 +80,7 @@ def main():
         "Upload a bank CSV to see where your money goes. "
         "Your file is processed in memory and isn't saved anywhere: close the tab and it's gone."
     )
+    view_settings = st.sidebar.container()
     categories_sidebar()
     
     uploaded_file = st.file_uploader(
@@ -118,16 +119,18 @@ def main():
             detected = st.session_state.detected
 
         if df is not None:
+            view_settings.subheader("View")
             codes = list(CURRENCIES.keys())
             default = detected or DEFAULT_CURRENCY
-            currency = st.sidebar.selectbox("Currency", codes, index=codes.index(default))
+            currency = view_settings.selectbox("Currency", codes, index=codes.index(default))
             if detected:
-                st.sidebar.caption(f"Detected {detected} from your file")
+                source_name = "the demo data" if file_key == "demo" else "your file"
+                view_settings.caption(f"Detected {detected} from {source_name}")
             symbol = CURRENCIES[currency]
             money_format = f"{symbol}%.2f"
             all_credits = df[df["Debit/Credit"] == "Credit"]
             months = month_options(df)
-            month_label = st.sidebar.selectbox("Month", ["All months"] + [label for label, _ in months])
+            month_label = view_settings.selectbox("Month", ["All months"] + [label for label, _ in months])
             period = dict(months).get(month_label)
 
             debits_view = filter_by_month(st.session_state.debits_df, period)
@@ -157,7 +160,7 @@ def main():
                 top_col.metric("Biggest category", "—")
                 top_col.caption("Categorise expenses to see this")
 
-            tab1, tab2, tab3 = st.tabs(["Expenses (Debits)", "Payments (Credits)", "Monthly trend"])
+            tab1, tab2, tab3 = st.tabs(["Expenses", "Income", "Monthly trend"])
             with tab1:
                 new_category = st.text_input("New Category Name")
                 add_button = st.button("Add Category")
@@ -234,10 +237,19 @@ def main():
 
             
             with tab2:
-                st.subheader("Payment Summary")
-                total_payments = credits_df["Amount"].sum()
-                st.metric("Total Payments", f"{symbol}{total_payments:,.2f}")
-                st.write(credits_df)
+                st.subheader("Income")
+                if credits_df.empty:
+                    st.info("No income in this period.")
+                else:
+                    st.dataframe(
+                        credits_df[["Date", "Details", "Amount"]].sort_values("Date"),
+                        column_config={
+                            "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
+                            "Amount": st.column_config.NumberColumn("Amount", format=money_format),
+                        },
+                        hide_index=True,
+                        width="stretch",
+                    )
 
             with tab3:
                 trend = monthly_totals(st.session_state.debits_df, all_credits)
