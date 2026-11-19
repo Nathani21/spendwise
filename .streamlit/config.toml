@@ -1,2 +1,5 @@
-[theme]
+[theme.light]
+primaryColor = "#10B981"
+
+[theme.dark]
 primaryColor = "#10B981"
