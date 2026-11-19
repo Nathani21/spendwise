@@ -105,3 +105,37 @@ def parse_categories(data):
 def categories_to_json(categories):
     """Turn categories into JSON text for downloading."""
     return json.dumps(categories, indent=2, ensure_ascii=False)
+
+
+
+
+def format_money(amount, symbol):
+    """Format an amount with a currency symbol and thousands separators, e.g. -₦1,250.00."""
+    sign = "-" if amount < 0 else ""
+    return f"{sign}{symbol}{abs(amount):,.2f}"
+
+
+def summarize(debits, credits):
+    """Headline numbers for the KPI cards."""
+    total_spent = float(debits["Amount"].sum())
+    total_income = float(credits["Amount"].sum())
+
+    if total_income > 0:
+        savings_rate = (total_income - total_spent) / total_income * 100
+    else:
+        savings_rate = None
+
+    categorized = debits[debits["Category"] != "Uncategorized"]
+    if categorized.empty:
+        top_category, top_amount = None, 0.0
+    else:
+        totals = categorized.groupby("Category")["Amount"].sum()
+        top_category, top_amount = totals.idxmax(), float(totals.max())
+
+    return {
+        "total_spent": total_spent,
+        "total_income": total_income,
+        "savings_rate": savings_rate,
+        "top_category": top_category,
+        "top_amount": top_amount,
+    }

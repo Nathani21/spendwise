@@ -10,9 +10,11 @@ from transactions import (
     categorize_transactions,
     clean_amounts,
     detect_currency,
+    format_money,
     move_keyword_to_category,
     parse_categories,
     parse_transactions,
+    summarize,
 )
 
 
@@ -234,3 +236,69 @@ def test_demo_data_parses_and_is_fully_categorised():
     debits = df[df["Debit/Credit"] == "Debit"]
     assert not debits.empty
     assert (debits["Category"] != "Uncategorized").all()
+
+
+
+
+# ---------- format_money ----------
+
+def test_format_money_adds_symbol_and_separators():
+    assert format_money(1250000, "₦") == "₦1,250,000.00"
+
+
+def test_format_money_puts_minus_before_symbol():
+    assert format_money(-45.5, "$") == "-$45.50"
+
+
+def test_format_money_handles_zero():
+    assert format_money(0, "£") == "£0.00"
+
+
+# ---------- summarize ----------
+
+def make_debits(rows):
+    return pd.DataFrame(rows, columns=["Category", "Amount"])
+
+
+def test_summarize_totals_and_savings_rate():
+    debits = make_debits([("Rent", 600.0), ("Food", 200.0)])
+    credits = pd.DataFrame({"Amount": [1000.0]})
+    summary = summarize(debits, credits)
+    assert summary["total_spent"] == 800.0
+    assert summary["total_income"] == 1000.0
+    assert summary["savings_rate"] == pytest.approx(20.0)
+
+
+def test_summarize_negative_savings_when_overspending():
+    debits = make_debits([("Rent", 1500.0)])
+    credits = pd.DataFrame({"Amount": [1000.0]})
+    assert summarize(debits, credits)["savings_rate"] == pytest.approx(-50.0)
+
+
+def test_summarize_no_income_gives_no_savings_rate():
+    debits = make_debits([("Rent", 100.0)])
+    credits = pd.DataFrame({"Amount": pd.Series([], dtype=float)})
+    assert summarize(debits, credits)["savings_rate"] is None
+
+
+def test_summarize_top_category_ignores_uncategorized():
+    debits = make_debits([("Uncategorized", 900.0), ("Food", 50.0), ("Food", 70.0), ("Transport", 100.0)])
+    summary = summarize(debits, pd.DataFrame({"Amount": [1000.0]}))
+    assert summary["top_category"] == "Food"
+    assert summary["top_amount"] == 120.0
+
+
+def test_summarize_no_top_category_when_all_uncategorized():
+    debits = make_debits([("Uncategorized", 100.0)])
+    summary = summarize(debits, pd.DataFrame({"Amount": [1000.0]}))
+    assert summary["top_category"] is None
+
+
+def test_summarize_demo_data():
+    df, _ = parse_transactions(DEMO_DIR / "demo_transactions.csv")
+    categories = parse_categories((DEMO_DIR / "demo_categories.json").read_bytes())
+    df = categorize_transactions(df, categories)
+    summary = summarize(df[df["Debit/Credit"] == "Debit"], df[df["Debit/Credit"] == "Credit"])
+    assert summary["total_spent"] == 1232200.0
+    assert summary["total_income"] == 2765000.0
+    assert summary["top_category"] == "Rent"
