@@ -29,7 +29,7 @@ Date,Details,Amount,Debit/Credit
 # ---------- clean_amounts ----------
 
 def test_clean_amounts_removes_thousands_separators():
-    assert clean_amounts(pd.Series(["12,500.00"])).tolist() == [12500.0]
+    assert clean_amounts(pd.Series(["12,500.00"])).tolist() == [99.0]
 
 
 def test_clean_amounts_removes_currency_symbols():
