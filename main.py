@@ -25,6 +25,9 @@ DEMO_DIR = Path(__file__).parent / "sample_data"
 DEMO_TRANSACTIONS = DEMO_DIR / "demo_transactions.csv"
 DEMO_CATEGORIES = DEMO_DIR / "demo_categories.json"
 
+SPENT_COLOR = "#F97316"
+INCOME_COLOR = "#10B981"
+
 if "categories" not in st.session_state:
     st.session_state.categories = {
         "Uncategorized": []
@@ -221,6 +224,7 @@ def main():
                     orientation="h",
                     text="Label",
                     title="Expenses by Category",
+                    color_discrete_sequence=[SPENT_COLOR],
                 )
                 fig.update_traces(
                     textposition="outside",
@@ -262,6 +266,7 @@ def main():
                         y=["Spent", "Income"],
                         barmode="group",
                         title="Spending vs income by month",
+                        color_discrete_map={"Spent": SPENT_COLOR, "Income": INCOME_COLOR},
                     )
                     trend_fig.update_traces(
                         hovertemplate="%{x}: " + symbol + "%{y:,.2f}<extra>%{fullData.name}</extra>"
