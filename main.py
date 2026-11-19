@@ -90,7 +90,7 @@ def add_keyword_to_category(category, keyword):
 def main():
     st.title("Simple Finance Dashboard")
     
-    uploaded_file = st.file_uploader("Upload you transaction CSV file", type=["csv"])
+    uploaded_file = st.file_uploader("Upload your transaction CSV file", type=["csv"])
 
     if uploaded_file is not None:
         df, detected = load_transactions(uploaded_file)
@@ -151,7 +151,7 @@ def main():
                 st.dataframe(
                     category_totals,
                     column_config={
-                        "Amount": st.column_config.NumberColumn("Amout", format=money_format)
+                        "Amount": st.column_config.NumberColumn("Amount", format=money_format)
                     },
                     use_container_width = True,
                     hide_index=True
