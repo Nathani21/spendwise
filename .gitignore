@@ -226,3 +226,4 @@ __marimo__/
 # User data created by the app
 categories.json
 *.csv
+!sample_data/*.csv

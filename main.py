@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import streamlit as st
 import plotly.express as px
 
@@ -12,6 +14,10 @@ from transactions import (
 )
 
 st.set_page_config(page_title="Spendwise", page_icon="💰", layout="wide")
+
+DEMO_DIR = Path(__file__).parent / "sample_data"
+DEMO_TRANSACTIONS = DEMO_DIR / "demo_transactions.csv"
+DEMO_CATEGORIES = DEMO_DIR / "demo_categories.json"
 
 if "categories" not in st.session_state:
     st.session_state.categories = {
@@ -77,9 +83,24 @@ def main():
     )
 
     if uploaded_file is not None:
+        source = uploaded_file
         file_key = f"{uploaded_file.name}-{uploaded_file.size}"
+        st.session_state.use_demo = False
+    elif st.session_state.get("use_demo"):
+        source = DEMO_TRANSACTIONS
+        file_key = "demo"
+        st.info("You're looking at demo data. Upload your own CSV above to replace it.")
+    else:
+        source = None
+        if st.button("Try demo data"):
+            if list(st.session_state.categories) == ["Uncategorized"]:
+                st.session_state.categories = parse_categories(DEMO_CATEGORIES.read_bytes())
+            st.session_state.use_demo = True
+            st.rerun()
+
+    if source is not None:
         if st.session_state.get("file_key") != file_key:
-            df, detected = load_transactions(uploaded_file)
+            df, detected = load_transactions(source)
             if df is not None:
                 st.session_state.file_key = file_key
                 st.session_state.df = df
