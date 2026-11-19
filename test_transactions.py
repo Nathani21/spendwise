@@ -10,6 +10,7 @@ from transactions import (
     categorize_transactions,
     clean_amounts,
     detect_currency,
+    format_compact,
     format_money,
     move_keyword_to_category,
     parse_categories,
@@ -302,3 +303,23 @@ def test_summarize_demo_data():
     assert summary["total_spent"] == 1232200.0
     assert summary["total_income"] == 2765000.0
     assert summary["top_category"] == "Rent"
+
+
+
+
+# ---------- format_compact ----------
+
+@pytest.mark.parametrize(
+    "amount, expected",
+    [
+        (1232200, "₦1.23M"),
+        (750000, "₦750K"),
+        (1500, "₦1.5K"),
+        (2_000_000_000, "₦2B"),
+        (980.5, "₦980.50"),
+        (-1_250_000, "-₦1.25M"),
+        (0, "₦0.00"),
+    ],
+)
+def test_format_compact(amount, expected):
+    assert format_compact(amount, "₦") == expected

@@ -8,6 +8,7 @@ from transactions import (
     DEFAULT_CURRENCY,
     categories_to_json,
     categorize_transactions,
+    format_compact,
     format_money,
     move_keyword_to_category,
     parse_categories,
@@ -125,11 +126,20 @@ def main():
 
             summary = summarize(st.session_state.debits_df, credits_df)
             spent_col, income_col, savings_col, top_col = st.columns(4, border=True)
-            spent_col.metric("Total spent", format_money(summary["total_spent"], symbol))
-            income_col.metric("Income", format_money(summary["total_income"], symbol))
+            spent_col.metric("Total spent", format_compact(summary["total_spent"], symbol))
+            spent_col.caption(format_money(summary["total_spent"], symbol))
+
+            income_col.metric("Income", format_compact(summary["total_income"], symbol))
+            income_col.caption(format_money(summary["total_income"], symbol))
 
             rate = summary["savings_rate"]
-            savings_col.metric("Savings rate", "—" if rate is None else f"{rate:.0f}%")
+            if rate is None:
+                savings_col.metric("Savings rate", "—")
+                savings_col.caption("No income in this file")
+            else:
+                saved = summary["total_income"] - summary["total_spent"]
+                savings_col.metric("Savings rate", f"{rate:.0f}%")
+                savings_col.caption(f"{format_money(saved, symbol)} kept")
 
             if summary["top_category"]:
                 top_col.metric("Biggest category", summary["top_category"])
