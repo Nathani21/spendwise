@@ -139,3 +139,15 @@ def summarize(debits, credits):
         "top_category": top_category,
         "top_amount": top_amount,
     }
+
+
+
+
+def format_compact(amount, symbol):
+    """Short form for cards: ₦1.23M, ₦750K, $980.50. Exact amounts use format_money."""
+    for limit, suffix in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
+        if abs(amount) >= limit:
+            short = f"{abs(amount) / limit:.2f}".rstrip("0").rstrip(".")
+            sign = "-" if amount < 0 else ""
+            return f"{sign}{symbol}{short}{suffix}"
+    return format_money(amount, symbol)
