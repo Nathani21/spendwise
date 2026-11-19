@@ -4,7 +4,7 @@ import plotly.express as px
 import json
 import os
 
-st.set_page_config(page_title="Simple Finance App", page_icon="):", Layout="wide")
+st.set_page_config(page_title="Simple Finance App", page_icon="💰", layout="wide")
 
 category_file = "categories.json"
 
@@ -51,7 +51,7 @@ def load_transactions(file):
 
 def add_keyword_to_category(category, keyword):
     keyword = keyword.strip()
-    if keyword and keyword not in st.sessio_state.categories[categor]:
+    if keyword and keyword not in st.session_state.categories[category]:
         st.session_state.categories[category].append(keyword)
         save_categories()
         return True
