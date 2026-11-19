@@ -11,7 +11,7 @@ from transactions import (
     parse_transactions,
 )
 
-st.set_page_config(page_title="Simple Finance App", page_icon="💰", layout="wide")
+st.set_page_config(page_title="Spendwise", page_icon="💰", layout="wide")
 
 if "categories" not in st.session_state:
     st.session_state.categories = {
@@ -63,10 +63,18 @@ def load_transactions(file):
 
 
 def main():
-    st.title("Simple Finance Dashboard")
+    st.title("Spendwise")
+    st.caption(
+        "Upload a bank CSV to see where your money goes. "
+        "Your file is processed in memory and isn't saved anywhere: close the tab and it's gone."
+    )
     categories_sidebar()
     
-    uploaded_file = st.file_uploader("Upload your transaction CSV file", type=["csv"])
+    uploaded_file = st.file_uploader(
+        "Upload your transaction CSV file",
+        type=["csv"],
+        help="Columns: Date (like 05 Jan 2026), Details, Amount, Debit/Credit. Optional: Currency.",
+    )
 
     if uploaded_file is not None:
         file_key = f"{uploaded_file.name}-{uploaded_file.size}"
