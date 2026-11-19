@@ -1,0 +1,9 @@
+{
+  "Uncategorized": [],
+  "Rent": ["Rent"],
+  "Groceries": ["Shoprite", "Spar"],
+  "Bills": ["IKEDC Electricity", "MTN Airtime", "DSTV"],
+  "Food": ["Chicken Republic", "Domino's Pizza"],
+  "Transport": ["Bolt", "Uber"],
+  "Subscriptions": ["Netflix", "Spotify"]
+}

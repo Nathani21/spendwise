@@ -1,5 +1,6 @@
 """Tests for transactions.py. Run with: python -m pytest"""
 import io
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -215,3 +216,21 @@ def test_parse_categories_rejects_invalid_json(bad):
 def test_parse_categories_rejects_wrong_shape(bad):
     with pytest.raises(ValueError, match="list of keywords"):
         parse_categories(bad)
+
+
+
+
+# ---------- demo data ----------
+
+DEMO_DIR = Path(__file__).parent / "sample_data"
+
+
+def test_demo_data_parses_and_is_fully_categorised():
+    df, currency = parse_transactions(DEMO_DIR / "demo_transactions.csv")
+    categories = parse_categories((DEMO_DIR / "demo_categories.json").read_bytes())
+    df = categorize_transactions(df, categories)
+
+    assert currency == "NGN"
+    debits = df[df["Debit/Credit"] == "Debit"]
+    assert not debits.empty
+    assert (debits["Category"] != "Uncategorized").all()
