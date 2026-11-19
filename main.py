@@ -8,8 +8,11 @@ from transactions import (
     DEFAULT_CURRENCY,
     categories_to_json,
     categorize_transactions,
+    filter_by_month,
     format_compact,
     format_money,
+    month_options,
+    monthly_totals,
     move_keyword_to_category,
     parse_categories,
     parse_transactions,
@@ -122,9 +125,15 @@ def main():
                 st.sidebar.caption(f"Detected {detected} from your file")
             symbol = CURRENCIES[currency]
             money_format = f"{symbol}%.2f"
-            credits_df = df[df["Debit/Credit"] == "Credit"].copy()
+            all_credits = df[df["Debit/Credit"] == "Credit"]
+            months = month_options(df)
+            month_label = st.sidebar.selectbox("Month", ["All months"] + [label for label, _ in months])
+            period = dict(months).get(month_label)
 
-            summary = summarize(st.session_state.debits_df, credits_df)
+            debits_view = filter_by_month(st.session_state.debits_df, period)
+            credits_df = filter_by_month(all_credits, period).copy()
+
+            summary = summarize(debits_view, credits_df)
             spent_col, income_col, savings_col, top_col = st.columns(4, border=True)
             spent_col.metric("Total spent", format_compact(summary["total_spent"], symbol))
             spent_col.caption(format_money(summary["total_spent"], symbol))
@@ -148,7 +157,7 @@ def main():
                 top_col.metric("Biggest category", "—")
                 top_col.caption("Categorise expenses to see this")
 
-            tab1, tab2 = st.tabs(["Expenses (Debits)", "Payments (Credits)"])
+            tab1, tab2, tab3 = st.tabs(["Expenses (Debits)", "Payments (Credits)", "Monthly trend"])
             with tab1:
                 new_category = st.text_input("New Category Name")
                 add_button = st.button("Add Category")
@@ -158,7 +167,7 @@ def main():
                         st.rerun()
                 st.subheader("Your Expenses")
                 edited_df = st.data_editor(
-                    st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
+                    debits_view[["Date", "Details", "Amount", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
                         "Amount": st.column_config.NumberColumn("Amount", format=money_format),
@@ -169,7 +178,7 @@ def main():
                     },
                     hide_index=True,
                     width="stretch",
-                    key=f"category_editor_{st.session_state.editor_version}"
+                    key=f"category_editor_{st.session_state.editor_version}_{month_label}"
                 )
 
                 save_button = st.button("Apply Changes", type="primary")
@@ -187,7 +196,7 @@ def main():
                     st.rerun()
                 
                 st.subheader("Expense Summary")
-                category_totals = st.session_state.debits_df.groupby("Category")["Amount"].sum().reset_index()
+                category_totals = debits_view.groupby("Category")["Amount"].sum().reset_index()
                 category_totals = category_totals.sort_values("Amount", ascending=False)
 
                 st.dataframe(
@@ -229,5 +238,28 @@ def main():
                 total_payments = credits_df["Amount"].sum()
                 st.metric("Total Payments", f"{symbol}{total_payments:,.2f}")
                 st.write(credits_df)
+
+            with tab3:
+                trend = monthly_totals(st.session_state.debits_df, all_credits)
+                if len(trend) < 2:
+                    st.info("Upload transactions from at least two months to see a trend.")
+                else:
+                    trend_fig = px.bar(
+                        trend,
+                        x="Month",
+                        y=["Spent", "Income"],
+                        barmode="group",
+                        title="Spending vs income by month",
+                    )
+                    trend_fig.update_traces(
+                        hovertemplate="%{x}: " + symbol + "%{y:,.2f}<extra>%{fullData.name}</extra>"
+                    )
+                    trend_fig.update_layout(
+                        xaxis_title=None,
+                        yaxis_title=None,
+                        legend_title_text=None,
+                        margin={"l": 0, "r": 0, "t": 50, "b": 0},
+                    )
+                    st.plotly_chart(trend_fig, width="stretch")
 
 main()

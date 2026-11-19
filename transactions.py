@@ -151,3 +151,29 @@ def format_compact(amount, symbol):
             sign = "-" if amount < 0 else ""
             return f"{sign}{symbol}{short}{suffix}"
     return format_money(amount, symbol)
+
+
+
+
+def month_options(df):
+    """Months present in the data, newest first, as (label, period) pairs like ("Nov 2026", Period)."""
+    periods = sorted(df["Date"].dt.to_period("M").unique(), reverse=True)
+    return [(period.strftime("%b %Y"), period) for period in periods]
+
+
+def filter_by_month(df, period):
+    """Rows from one month. A period of None means all months."""
+    if period is None:
+        return df
+    return df[df["Date"].dt.to_period("M") == period]
+
+
+def monthly_totals(debits, credits):
+    """Spent and income per month, oldest first, with a "Month" label column."""
+    spent = debits.groupby(debits["Date"].dt.to_period("M"))["Amount"].sum()
+    income = credits.groupby(credits["Date"].dt.to_period("M"))["Amount"].sum()
+
+    totals = pd.DataFrame({"Spent": spent, "Income": income}).fillna(0.0).sort_index()
+    totals.index = totals.index.strftime("%b %Y")
+    totals.index.name = "Month"
+    return totals.reset_index()

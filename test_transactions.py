@@ -10,8 +10,11 @@ from transactions import (
     categorize_transactions,
     clean_amounts,
     detect_currency,
+    filter_by_month,
     format_compact,
     format_money,
+    month_options,
+    monthly_totals,
     move_keyword_to_category,
     parse_categories,
     parse_transactions,
@@ -323,3 +326,52 @@ def test_summarize_demo_data():
 )
 def test_format_compact(amount, expected):
     assert format_compact(amount, "₦") == expected
+
+
+
+
+# ---------- months ----------
+
+def make_dated(rows):
+    """rows: (date string, amount) pairs."""
+    df = pd.DataFrame(rows, columns=["Date", "Amount"])
+    df["Date"] = pd.to_datetime(df["Date"])
+    return df
+
+
+def test_month_options_newest_first():
+    df = make_dated([("2026-09-03", 1.0), ("2026-11-02", 1.0), ("2026-09-20", 1.0), ("2026-10-05", 1.0)])
+    assert [label for label, _ in month_options(df)] == ["Nov 2026", "Oct 2026", "Sep 2026"]
+
+
+def test_month_options_spans_years():
+    df = make_dated([("2025-12-30", 1.0), ("2026-01-02", 1.0)])
+    assert [label for label, _ in month_options(df)] == ["Jan 2026", "Dec 2025"]
+
+
+def test_filter_by_month_keeps_only_that_month():
+    df = make_dated([("2026-09-03", 10.0), ("2026-10-05", 20.0), ("2026-10-28", 30.0)])
+    october = dict(month_options(df))["Oct 2026"]
+    assert filter_by_month(df, october)["Amount"].tolist() == [20.0, 30.0]
+
+
+def test_filter_by_month_none_returns_everything():
+    df = make_dated([("2026-09-03", 10.0), ("2026-10-05", 20.0)])
+    assert len(filter_by_month(df, None)) == 2
+
+
+def test_monthly_totals_fills_missing_months_with_zero():
+    debits = make_dated([("2026-09-03", 100.0), ("2026-09-10", 50.0), ("2026-10-05", 80.0)])
+    credits = make_dated([("2026-10-01", 500.0)])
+    totals = monthly_totals(debits, credits)
+    assert totals["Month"].tolist() == ["Sep 2026", "Oct 2026"]
+    assert totals["Spent"].tolist() == [150.0, 80.0]
+    assert totals["Income"].tolist() == [0.0, 500.0]
+
+
+def test_monthly_totals_demo_data():
+    df, _ = parse_transactions(DEMO_DIR / "demo_transactions.csv")
+    totals = monthly_totals(df[df["Debit/Credit"] == "Debit"], df[df["Debit/Credit"] == "Credit"])
+    assert totals["Month"].tolist() == ["Sep 2026", "Oct 2026", "Nov 2026"]
+    assert totals["Spent"].sum() == 1232200.0
+    assert totals["Income"].tolist() == [970000.0, 850000.0, 945000.0]
