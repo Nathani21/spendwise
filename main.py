@@ -19,7 +19,9 @@ from transactions import (
     summarize,
 )
 
-st.set_page_config(page_title="Spendwise", page_icon="💰", layout="wide")
+APP_ICON = Path(__file__).parent / "assets" / "icon.png"
+
+st.set_page_config(page_title="Spendwise", page_icon=str(APP_ICON), layout="wide")
 
 DEMO_DIR = Path(__file__).parent / "sample_data"
 DEMO_TRANSACTIONS = DEMO_DIR / "demo_transactions.csv"
