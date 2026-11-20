@@ -142,10 +142,73 @@ def test_categorize_ignores_uncategorized_keywords():
     assert df["Category"].tolist() == ["Uncategorized"]
 
 
-def test_categorize_requires_exact_match():
-    # Current behaviour: "UBER *TRIP" does not match "Uber". Smarter matching comes in a later PR.
+def test_categorize_matches_keyword_inside_details():
     df = categorize_transactions(make_df(["UBER *TRIP 123"]), {"Transport": ["Uber"]})
+    assert df["Category"].tolist() == ["Transport"]
+
+
+def test_categorize_matches_real_bank_narrations():
+    details = ["POS PURCHASE SHOPRITE LEKKI 0423", "WEB PURCHASE BOLT.EU/O/2609 LAGOS"]
+    categories = {"Groceries": ["Shoprite"], "Transport": ["Bolt"]}
+    df = categorize_transactions(make_df(details), categories)
+    assert df["Category"].tolist() == ["Groceries", "Transport"]
+
+
+def test_categorize_needs_whole_words():
+    categories = {"Transport": ["Bolt"], "Rent": ["Rent"]}
+    df = categorize_transactions(make_df(["BOLTON STORES", "CURRENT ACCOUNT FEE"]), categories)
+    assert df["Category"].tolist() == ["Uncategorized", "Uncategorized"]
+
+
+def test_categorize_longest_keyword_wins():
+    categories = {"Transport": ["Uber"], "Food": ["Uber Eats"]}
+    df = categorize_transactions(make_df(["UBER EATS ORDER 55", "UBER *TRIP 9"]), categories)
+    assert df["Category"].tolist() == ["Food", "Transport"]
+
+
+def test_categorize_longest_wins_regardless_of_category_order():
+    categories = {"Food": ["Uber Eats"], "Transport": ["Uber"]}
+    df = categorize_transactions(make_df(["UBER EATS ORDER 55"]), categories)
+    assert df["Category"].tolist() == ["Food"]
+
+
+def test_categorize_ignores_extra_whitespace():
+    df = categorize_transactions(make_df(["POS   CHICKEN  REPUBLIC  AJAH"]), {"Food": [" Chicken Republic "]})
+    assert df["Category"].tolist() == ["Food"]
+
+
+def test_categorize_handles_punctuation_in_keywords():
+    categories = {"Food": ["Domino's"], "Tech": ["C++ Books"]}
+    df = categorize_transactions(make_df(["DOMINO'S PIZZA LEKKI", "C++ BOOKS LTD"]), categories)
+    assert df["Category"].tolist() == ["Food", "Tech"]
+
+
+def test_categorize_ignores_blank_keywords():
+    df = categorize_transactions(make_df(["Anything"]), {"Food": ["", "   "]})
     assert df["Category"].tolist() == ["Uncategorized"]
+
+
+def test_categorize_handles_missing_details():
+    df = categorize_transactions(make_df([None, "UBER *TRIP"]), {"Transport": ["Uber"]})
+    assert df["Category"].tolist() == ["Uncategorized", "Transport"]
+
+
+def test_full_details_keyword_overrides_shorter_rule():
+    # Re-categorising one row stores its full details as a keyword. Being longer, it beats "Shoprite".
+    categories = {"Uncategorized": [], "Groceries": ["Shoprite"], "Food": []}
+    move_keyword_to_category(categories, "Food", "POS PURCHASE SHOPRITE CAFE 0099")
+    df = categorize_transactions(
+        make_df(["POS PURCHASE SHOPRITE CAFE 0099", "POS PURCHASE SHOPRITE LEKKI 0423"]), categories
+    )
+    assert df["Category"].tolist() == ["Food", "Groceries"]
+
+
+def test_shorter_rule_still_matches_after_moving_row_to_uncategorized():
+    # Known limit: a row matched by a shorter keyword can't be uncategorised from the table.
+    categories = {"Uncategorized": [], "Groceries": ["Shoprite"]}
+    move_keyword_to_category(categories, "Uncategorized", "POS PURCHASE SHOPRITE LEKKI 0423")
+    df = categorize_transactions(make_df(["POS PURCHASE SHOPRITE LEKKI 0423"]), categories)
+    assert df["Category"].tolist() == ["Groceries"]
 
 
 # ---------- move_keyword_to_category ----------
