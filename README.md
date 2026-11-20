@@ -18,6 +18,7 @@ The free hosting sleeps when nobody has visited for a while. If you see a wake-u
 - Headline cards: total spent, income, savings rate and biggest category
 - Assign categories in an editable table; changing one transaction updates every matching one
 - Keywords match inside real bank narrations (`Shoprite` matches `POS PURCHASE SHOPRITE LEKKI 0423`), as whole words, with the most specific keyword winning
+- Every transaction shows the keyword that matched it, and a Manage keywords panel adds and removes keywords
 - Spending by category as a sorted bar chart, with a summary table
 - Month filter, plus a monthly trend of spending against income
 - Currency detected automatically from a `Currency` column or from symbols in the amounts (₦, $, €, £), with a manual selector (USD, NGN, EUR, GBP, AED)

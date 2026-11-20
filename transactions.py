@@ -51,7 +51,7 @@ def normalize_text(text):
 
 
 def build_rules(categories):
-    """Turn categories into (pattern, category) rules, longest keyword first.
+    """Turn categories into (pattern, category, keyword) rules, longest keyword first.
 
     A keyword matches as a whole word or phrase anywhere in the details, so "Bolt"
     matches "BOLT.EU/O/2609" but not "BOLTON STORES". Longest first means the most
@@ -65,25 +65,32 @@ def build_rules(categories):
             normalized = normalize_text(keyword)
             if normalized:
                 pattern = re.compile(r"(?<!\w)" + re.escape(normalized) + r"(?!\w)")
-                rules.append((len(normalized), pattern, category))
+                rules.append((len(normalized), pattern, category, keyword.strip()))
 
     rules.sort(key=lambda rule: rule[0], reverse=True)
-    return [(pattern, category) for _, pattern, category in rules]
+    return [(pattern, category, keyword) for _, pattern, category, keyword in rules]
+
+
+def match_rule(details, rules):
+    """Return (category, keyword) for the most specific matching rule, or ("Uncategorized", None)."""
+    text = normalize_text(details)
+    for pattern, category, keyword in rules:
+        if pattern.search(text):
+            return category, keyword
+    return "Uncategorized", None
 
 
 def match_category(details, rules):
-    """Return the category of the first (most specific) matching rule, or Uncategorized."""
-    text = normalize_text(details)
-    for pattern, category in rules:
-        if pattern.search(text):
-            return category
-    return "Uncategorized"
+    """Return the category of the most specific matching rule, or Uncategorized."""
+    return match_rule(details, rules)[0]
 
 
 def categorize_transactions(df, categories):
-    """Set each row's Category by matching keywords inside its Details."""
+    """Set each row's Category, and the Keyword that matched it, from the keyword lists."""
     rules = build_rules(categories)
-    df["Category"] = df["Details"].apply(lambda details: match_category(details, rules))
+    matches = [match_rule(details, rules) for details in df["Details"]]
+    df["Category"] = [category for category, _ in matches]
+    df["Keyword"] = [keyword for _, keyword in matches]
     return df
 
 
@@ -202,3 +209,25 @@ def monthly_totals(debits, credits):
     totals.index = totals.index.strftime("%b %Y")
     totals.index.name = "Month"
     return totals.reset_index()
+
+
+
+
+def remove_keyword(categories, category, keyword):
+    """Remove a keyword from one category, ignoring case and extra spaces. Changes `categories` in place."""
+    if category not in categories:
+        return
+    target = normalize_text(keyword)
+    categories[category][:] = [k for k in categories[category] if normalize_text(k) != target]
+
+
+def keyword_table(categories):
+    """All keyword rules as a Category/Keyword table, sorted by category then keyword."""
+    rows = [
+        (category, keyword)
+        for category, keywords in categories.items()
+        if category != "Uncategorized"
+        for keyword in keywords
+    ]
+    rows.sort(key=lambda row: (row[0].lower(), row[1].lower()))
+    return pd.DataFrame(rows, columns=["Category", "Keyword"])
