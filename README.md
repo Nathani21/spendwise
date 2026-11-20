@@ -17,6 +17,7 @@ The free hosting sleeps when nobody has visited for a while. If you see a wake-u
 - Upload a bank statement as a CSV file, or try three months of demo data with one click
 - Headline cards: total spent, income, savings rate and biggest category
 - Assign categories in an editable table; changing one transaction updates every matching one
+- Keywords match inside real bank narrations (`Shoprite` matches `POS PURCHASE SHOPRITE LEKKI 0423`), as whole words, with the most specific keyword winning
 - Spending by category as a sorted bar chart, with a summary table
 - Month filter, plus a monthly trend of spending against income
 - Currency detected automatically from a `Currency` column or from symbols in the amounts (₦, $, €, £), with a manual selector (USD, NGN, EUR, GBP, AED)
@@ -77,7 +78,6 @@ python -m pytest
 ## Roadmap
 
 - Budgets per category with progress bars
-- Smarter matching, so partial names like `UBER *TRIP 123` match `Uber`
 - v2: rebuild with a FastAPI backend and a Next.js frontend, with accounts
 
 ## Credits

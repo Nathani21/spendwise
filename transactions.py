@@ -1,5 +1,6 @@
 """Transaction logic for Spendwise. No Streamlit imports, so everything here can be tested."""
 import json
+import re
 
 import pandas as pd
 
@@ -44,21 +45,45 @@ def parse_transactions(file):
     return df, currency
 
 
-def categorize_transactions(df, categories):
-    """Set each row's Category from the keyword lists in `categories`."""
-    df["Category"] = "Uncategorized"
+def normalize_text(text):
+    """Lowercase and collapse runs of whitespace, so "POS  PURCHASE" equals "pos purchase"."""
+    return " ".join(str(text).lower().split())
 
+
+def build_rules(categories):
+    """Turn categories into (pattern, category) rules, longest keyword first.
+
+    A keyword matches as a whole word or phrase anywhere in the details, so "Bolt"
+    matches "BOLT.EU/O/2609" but not "BOLTON STORES". Longest first means the most
+    specific keyword wins: "Uber Eats" beats "Uber".
+    """
+    rules = []
     for category, keywords in categories.items():
-        if category == "Uncategorized" or not keywords:
+        if category == "Uncategorized":
             continue
+        for keyword in keywords:
+            normalized = normalize_text(keyword)
+            if normalized:
+                pattern = re.compile(r"(?<!\w)" + re.escape(normalized) + r"(?!\w)")
+                rules.append((len(normalized), pattern, category))
 
-        lowered_keywords = [keyword.lower().strip() for keyword in keywords]
+    rules.sort(key=lambda rule: rule[0], reverse=True)
+    return [(pattern, category) for _, pattern, category in rules]
 
-        for idx, row in df.iterrows():
-            details = row["Details"].lower()
-            if details in lowered_keywords:
-                df.at[idx, "Category"] = category
 
+def match_category(details, rules):
+    """Return the category of the first (most specific) matching rule, or Uncategorized."""
+    text = normalize_text(details)
+    for pattern, category in rules:
+        if pattern.search(text):
+            return category
+    return "Uncategorized"
+
+
+def categorize_transactions(df, categories):
+    """Set each row's Category by matching keywords inside its Details."""
+    rules = build_rules(categories)
+    df["Category"] = df["Details"].apply(lambda details: match_category(details, rules))
     return df
 
 
