@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+tone_instructions: "Explain the why behind each suggestion. The author is learning, so keep it clear and concrete."
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!sample_data/**"
+    - "!**/*.png"
+  path_instructions:
+    - path: "transactions.py"
+      instructions: >-
+        Pure logic module. It must never import streamlit. Every function needs
+        a docstring and should be covered by tests in test_transactions.py.
+        Watch for pandas edge cases: empty dataframes, missing columns, NaN values.
+    - path: "main.py"
+      instructions: >-
+        Streamlit UI only; logic belongs in transactions.py. The script reruns on
+        every interaction, so check that uploads and imports are processed once per
+        file (the file_key and import_key pattern) and that data_editor keys change
+        when the underlying data changes. Nothing may be written to disk: user data
+        stays in st.session_state.
+    - path: "test_transactions.py"
+      instructions: >-
+        pytest tests. Suggest missing edge cases rather than style changes.
+    - path: ".github/workflows/**"
+      instructions: >-
+        The job must stay named "test", because branch protection requires that check.
+
+chat:
+  auto_reply: true
