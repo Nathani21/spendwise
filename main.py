@@ -11,11 +11,13 @@ from transactions import (
     filter_by_month,
     format_compact,
     format_money,
+    keyword_table,
     month_options,
     monthly_totals,
     move_keyword_to_category,
     parse_categories,
     parse_transactions,
+    remove_keyword,
     summarize,
 )
 
@@ -68,7 +70,13 @@ def categories_sidebar():
         st.session_state.editor_version += 1
     st.sidebar.success("Categories imported")
 
-
+def refresh_categories():
+    """Re-categorise loaded transactions after the keyword lists change."""
+    if "debits_df" in st.session_state:
+        st.session_state.debits_df = categorize_transactions(
+            st.session_state.debits_df, st.session_state.categories
+        )
+        st.session_state.editor_version += 1
 
 def load_transactions(file):
     try:
@@ -173,12 +181,54 @@ def main():
                     if new_category not in st.session_state.categories:
                         st.session_state.categories[new_category] = []
                         st.rerun()
+
+                with st.expander("Manage keywords"):
+                    st.caption(
+                        "A keyword matches when it appears as a whole word in a transaction's details. "
+                        "If several match, the longest wins."
+                    )
+                    named = [name for name in st.session_state.categories if name != "Uncategorized"]
+                    if not named:
+                        st.info("Add a category first.")
+                    else:
+                        with st.form("add_keyword", clear_on_submit=True):
+                            category_col, keyword_col = st.columns([1, 2])
+                            keyword_category = category_col.selectbox("Category", named)
+                            keyword_text = keyword_col.text_input("Keyword", placeholder="e.g. Shoprite")
+                            if st.form_submit_button("Add keyword") and keyword_text.strip():
+                                move_keyword_to_category(
+                                    st.session_state.categories, keyword_category, keyword_text
+                                )
+                                refresh_categories()
+                                st.rerun()
+
+                        rules = keyword_table(st.session_state.categories).assign(Remove=False)
+                        if rules.empty:
+                            st.caption("No keywords yet.")
+                        else:
+                            edited_rules = st.data_editor(
+                                rules,
+                                column_config={"Remove": st.column_config.CheckboxColumn("Remove")},
+                                disabled=["Category", "Keyword"],
+                                hide_index=True,
+                                width="stretch",
+                                key=f"keyword_editor_{st.session_state.editor_version}",
+                            )
+                            if st.button("Remove selected keywords"):
+                                for _, rule in edited_rules[edited_rules["Remove"]].iterrows():
+                                    remove_keyword(
+                                        st.session_state.categories, rule["Category"], rule["Keyword"]
+                                    )
+                                refresh_categories()
+                                st.rerun()
+
                 st.subheader("Your Expenses")
                 edited_df = st.data_editor(
-                    debits_view[["Date", "Details", "Amount", "Category"]],
+                    debits_view[["Date", "Details", "Amount", "Keyword", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
                         "Amount": st.column_config.NumberColumn("Amount", format=money_format),
+                        "Keyword": st.column_config.TextColumn("Matched keyword"),
                         "Category": st.column_config.SelectboxColumn(
                             "Category",
                             options=list(st.session_state.categories.keys())
@@ -186,6 +236,7 @@ def main():
                     },
                     hide_index=True,
                     width="stretch",
+                    disabled=["Keyword"],
                     key=f"category_editor_{st.session_state.editor_version}_{month_label}"
                 )
 

@@ -13,11 +13,13 @@ from transactions import (
     filter_by_month,
     format_compact,
     format_money,
+    keyword_table,
     month_options,
     monthly_totals,
     move_keyword_to_category,
     parse_categories,
     parse_transactions,
+    remove_keyword,
     summarize,
 )
 
@@ -204,7 +206,7 @@ def test_full_details_keyword_overrides_shorter_rule():
 
 
 def test_shorter_rule_still_matches_after_moving_row_to_uncategorized():
-    # Known limit: a row matched by a shorter keyword can't be uncategorised from the table.
+    # Moving a row to Uncategorized in the table doesn't remove a shorter rule; remove_keyword does.
     categories = {"Uncategorized": [], "Groceries": ["Shoprite"]}
     move_keyword_to_category(categories, "Uncategorized", "POS PURCHASE SHOPRITE LEKKI 0423")
     df = categorize_transactions(make_df(["POS PURCHASE SHOPRITE LEKKI 0423"]), categories)
@@ -438,3 +440,58 @@ def test_monthly_totals_demo_data():
     assert totals["Month"].tolist() == ["Sep 2026", "Oct 2026", "Nov 2026"]
     assert totals["Spent"].sum() == 1232200.0
     assert totals["Income"].tolist() == [970000.0, 850000.0, 945000.0]
+
+
+
+
+# ---------- matched keyword ----------
+
+def test_categorize_records_matching_keyword():
+    categories = {"Transport": ["Uber"], "Food": ["Uber Eats"]}
+    df = categorize_transactions(make_df(["UBER EATS ORDER 55", "UBER *TRIP 9", "RANDOM SHOP"]), categories)
+    assert df["Keyword"].tolist()[:2] == ["Uber Eats", "Uber"]
+    assert pd.isna(df["Keyword"].iloc[2])
+
+
+def test_categorize_keyword_is_stripped():
+    df = categorize_transactions(make_df(["SPAR VI"]), {"Groceries": ["  Spar "]})
+    assert df["Keyword"].tolist() == ["Spar"]
+
+
+def test_categorize_empty_dataframe():
+    df = categorize_transactions(make_df([]), {"Groceries": ["Spar"]})
+    assert df.empty
+    assert {"Category", "Keyword"} <= set(df.columns)
+
+
+# ---------- remove_keyword / keyword_table ----------
+
+def test_remove_keyword_ignores_case_and_spaces():
+    categories = {"Uncategorized": [], "Groceries": ["Shoprite", "Spar"]}
+    remove_keyword(categories, "Groceries", "  SHOPRITE ")
+    assert categories["Groceries"] == ["Spar"]
+
+
+def test_remove_keyword_unknown_category_does_nothing():
+    categories = {"Uncategorized": [], "Groceries": ["Spar"]}
+    remove_keyword(categories, "Food", "Spar")
+    assert categories == {"Uncategorized": [], "Groceries": ["Spar"]}
+
+
+def test_removing_shorter_rule_lets_row_be_uncategorized():
+    categories = {"Uncategorized": [], "Groceries": ["Shoprite"]}
+    remove_keyword(categories, "Groceries", "Shoprite")
+    df = categorize_transactions(make_df(["POS PURCHASE SHOPRITE LEKKI 0423"]), categories)
+    assert df["Category"].tolist() == ["Uncategorized"]
+
+
+def test_keyword_table_sorted_and_skips_uncategorized():
+    categories = {"Uncategorized": ["ignored"], "Transport": ["Uber", "bolt"], "Food": ["KFC"]}
+    table = keyword_table(categories)
+    assert table.values.tolist() == [["Food", "KFC"], ["Transport", "bolt"], ["Transport", "Uber"]]
+
+
+def test_keyword_table_empty():
+    table = keyword_table({"Uncategorized": []})
+    assert table.empty
+    assert list(table.columns) == ["Category", "Keyword"]
